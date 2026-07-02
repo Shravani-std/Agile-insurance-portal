@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import {
   Plus, Search, Eye, Edit2, Copy, Settings2, ListChecks, ShieldAlert,
   BarChart3, Trash2, MoreVertical, X, UploadCloud, CheckCircle2,
-  RotateCcw, AlertTriangle,
+  RotateCcw, AlertTriangle, FileText, ArrowLeft,
 } from "lucide-react";
  
 /* ---------------------------------------------------------------------- */
@@ -144,6 +144,9 @@ const inputCls = "h-10 rounded-lg border border-slate-200 px-3 text-sm font-medi
  
 const PolicyManagement = () => {
   const [policies, setPolicies] = useState(makeSeedPolicies);
+
+  // ── View toggle: "policies" (default table) or "regulations" (new page) ──
+  const [currentView, setCurrentView] = useState("policies");
  
   // ── Trash state ─────────────────────────────────────────────────────────
   const [trash, setTrash]           = useState([]);   // [{ policy, deletedAt }]
@@ -318,6 +321,21 @@ const PolicyManagement = () => {
     { key: "sales", label: "View Sales", icon: BarChart3, onClick: () => openAction("sales", p) },
     { key: "delete", label: "Delete Policy", icon: Trash2, danger: true, onClick: () => openAction("delete", p) },
   ];
+
+  // ── If we're on the Policy Regulations page, render that instead ────────
+  if (currentView === "regulations") {
+    return (
+      <>
+        {toastNode}
+        <PolicyRegulationsPage
+          policies={policies}
+          updateInTable={updateInTable}
+          push={push}
+          onBack={() => setCurrentView("policies")}
+        />
+      </>
+    );
+  }
  
   return (
     <div className="space-y-6" onClick={closeMenu}>
@@ -328,12 +346,20 @@ const PolicyManagement = () => {
         <div>
           <h2 className="text-xl font-black text-slate-950">Policy Management</h2>
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); openAction("add", null); }}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
-        >
-          <Plus size={16} /> Add New Policy
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); setCurrentView("regulations"); }}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+          >
+            <FileText size={16} /> Policy Regulations
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); openAction("add", null); }}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+          >
+            <Plus size={16} /> Add New Policy
+          </button>
+        </div>
       </div>
  
       {/* Filters */}
@@ -745,6 +771,137 @@ const PolicyManagement = () => {
     </div>
   );
 };
+
+/* ---------------------------------------------------------------------- */
+/*  Policy Regulations Page (new)                                         */
+/* ---------------------------------------------------------------------- */
+
+function PolicyRegulationsPage({ policies, updateInTable, push, onBack }) {
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("All Categories");
+  const [editModal, setEditModal] = useState(null); // policy being edited
+  const [draft, setDraft] = useState(null);
+
+  const categories = useMemo(
+    () => ["All Categories", ...new Set(policies.map((p) => p.category))],
+    [policies]
+  );
+
+  const filtered = useMemo(() => {
+    return policies.filter((p) => {
+      if (search && !`${p.policyCode} ${p.name}`.toLowerCase().includes(search.toLowerCase())) return false;
+      if (filterCategory !== "All Categories" && p.category !== filterCategory) return false;
+      return true;
+    });
+  }, [policies, search, filterCategory]);
+
+  const openEdit = (policy) => {
+    setEditModal(policy);
+    setDraft({ regulations: policy.regulations, minAge: policy.minAge, maxAge: policy.maxAge });
+  };
+
+  const closeEdit = () => { setEditModal(null); setDraft(null); };
+
+  const saveEdit = () => {
+    updateInTable(editModal.policyCode, { regulations: draft.regulations, minAge: draft.minAge, maxAge: draft.maxAge });
+    push(`Regulations updated for ${editModal.policyCode}`);
+    closeEdit();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-slate-950">Policy Regulations</h2>
+            <p className="text-sm text-slate-500">Review and update regulation text & age eligibility across all policies.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Search Policy">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by Policy No, Name..." className={`${inputCls} w-full pl-9`} />
+            </div>
+          </Field>
+          <Field label="Policy Category">
+            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={inputCls}>
+              {categories.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      {/* Regulations list */}
+      <div className="space-y-3">
+        {filtered.map((p) => (
+          <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900">{p.policyCode}</span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${CATEGORY_STYLES[p.category] || "bg-slate-100 text-slate-700"}`}>{p.category}</span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[p.status]}`}>{p.status}</span>
+                </div>
+                <p className="mt-0.5 text-sm font-bold text-slate-600">{p.name}</p>
+              </div>
+              <button
+                onClick={() => openEdit(p)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                <Edit2 size={13} /> Edit Regulations
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <p className="text-sm text-slate-700">{p.regulations || <span className="text-slate-400">No regulation text set.</span>}</p>
+              <span className="whitespace-nowrap rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600">
+                Age: {p.minAge} - {p.maxAge} yrs
+              </span>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white py-12 text-slate-300">
+            <ShieldAlert size={40} />
+            <p className="text-sm font-semibold text-slate-400">No policies match your filters.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Edit modal */}
+      {editModal && draft && (
+        <Modal title={`Edit Regulations — ${editModal.policyCode}`} onClose={closeEdit} footer={<>
+          <button onClick={closeEdit} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold">Cancel</button>
+          <button onClick={saveEdit} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">Save</button>
+        </>}>
+          <div className="space-y-3">
+            <Field label="Regulation Text">
+              <textarea rows={5} className="rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-blue-500" value={draft.regulations} onChange={(e) => setDraft({ ...draft, regulations: e.target.value })} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Minimum Age"><input type="number" className={inputCls} value={draft.minAge} onChange={(e) => setDraft({ ...draft, minAge: Number(e.target.value) })} /></Field>
+              <Field label="Maximum Age"><input type="number" className={inputCls} value={draft.maxAge} onChange={(e) => setDraft({ ...draft, maxAge: Number(e.target.value) })} /></Field>
+            </div>
+            <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+              ⚠ Changes here affect eligibility checks across the policy lifecycle.
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
  
 const Detail = ({ label, value, big }) => (
   <div className={big ? "rounded-xl border border-slate-200 p-4" : ""}>
@@ -883,4 +1040,3 @@ function PolicyForm({ draft, setDraft }) {
 }
  
 export default PolicyManagement;
- 
