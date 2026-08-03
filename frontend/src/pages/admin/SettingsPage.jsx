@@ -4,13 +4,13 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   Settings, UserCog, Bell, CreditCard, KeyRound, ClipboardCheck,
   Edit3, AlertTriangle, LineChart, FileText, ShieldCheck, Users, ArrowLeft, Search,
-  UserPlus, Loader2, CheckCircle2, ToggleLeft, ToggleRight,
+  UserPlus, Loader2, CheckCircle2, ToggleLeft, ToggleRight,LayoutDashboard,
 } from "lucide-react";
 import { SectionTitle } from "../../components/admin/shared";
 
 import { setSelectedSettingId, mergeSettings, setSaving } from "../../store/slices/settingsSlice";
 import { useAdminActions } from "../../hooks/useAdminActions";
-import { apiRequest } from "../../utils/api";
+import { apiRequest, resolveAssetUrl } from "../../utils/api";
 
 // ─── Static config ────────────────────────────────────────────────────────────
 
@@ -43,7 +43,12 @@ const adminSettingCards = [
   { id: "kyc",           title: "KYC Setting",            description: "Configure client information fields.",                                          icon: ShieldCheck },
   { id: "social",        title: "Social Login Setting",   description: "Provide required social login information.",                                    icon: Users },
   { id: "maintenanceMode",   title: "Maintenance Mode",       description: "Enable or disable maintenance mode when required.",                             icon: Settings },
-  
+   {
+    id: "landingPage",
+    title: "Landing Page",
+    description: "Edit the public homepage hero, footer social links, and 'Why Choose Us' cards.",
+    icon: LayoutDashboard,
+  },
 ];
 
 const adminRegistrationCard = {
@@ -175,7 +180,49 @@ const settingFieldGroups = {
         type: "textarea",
         defaultValue: "The portal is temporarily under maintenance."
     }
-]
+],
+    landingPage: [
+  { name: "heroLine1", label: "Hero Title – Line 1", type: "text", defaultValue: "Claim Smarter," },
+  { name: "heroLine2", label: "Hero Title – Line 2 (highlighted)", type: "text", defaultValue: "Not Harder!" },
+  {
+    name: "heroSubtitle",
+    label: "Hero Subtitle",
+    type: "textarea",
+    defaultValue: "Experience the future of insurance. Report vehicle claims in seconds with our AI-driven appraisal system. Simpler, faster, better.",
+  },
+  { name: "heroButtonText", label: "Hero Button Text (Guest)", type: "text", defaultValue: "Get Started" },
+  { name: "heroButtonTextLoggedIn", label: "Hero Button Text (Logged in)", type: "text", defaultValue: "Open Dashboard" },
+  { name: "heroImageUrl", label: "Hero Section Image", type: "image", defaultValue: "" },
+  { name: "logoUrl", label: "Site Logo", type: "image", defaultValue: "" },
+  { name: "trustedPartnersLabel", label: "Trusted Partners – Label", type: "text", defaultValue: "Trusted Partners" },
+
+  { name: "whyChooseEyebrow", label: "Why Choose Us – Eyebrow", type: "text", defaultValue: "Why Choose Us" },
+  { name: "whyChooseHeading", label: "Why Choose Us – Heading", type: "text", defaultValue: "Trusted Digital Insurance Experience" },
+  {
+    name: "whyChooseFeatures",
+    label: "Why Choose Us – Feature Cards",
+    type: "cardList",
+    defaultValue: [
+      { icon: "💬", title: "24/7 Customer Support", desc: "Real-time human + AI support anytime from anywhere.", slug: "customer-support" },
+      { icon: "⚡", title: "Fast Claim Processing", desc: "Verification and processing completed within minutes.", slug: "fast-claims" },
+      { icon: "📄", title: "Smart Policy Tracking", desc: "Track and manage all policies from one dashboard.", slug: "policy-tracking" },
+      { icon: "🔒", title: "Advanced Security", desc: "Military-grade encryption for all your data and management.", slug: "advanced-security" },
+    ],
+  },
+
+  { name: "navbarTagline", label: "Navbar Tagline", type: "text", defaultValue: "Smart & Secure Protection" },
+
+  {
+    name: "footerLegalNotice",
+    label: "Footer – Fraud Warning Text",
+    type: "textarea",
+    defaultValue: "BEWARE OF SPURIOUS PHONE CALLS AND FICTITIOUS / FRAUDULENT OFFERS",
+  },
+  { name: "socialFacebook", label: "Social – Facebook URL", type: "text", defaultValue: "https://www.facebook.com" },
+  { name: "socialYoutube", label: "Social – YouTube URL", type: "text", defaultValue: "https://www.youtube.com" },
+  { name: "socialLinkedin", label: "Social – LinkedIn URL", type: "text", defaultValue: "https://www.linkedin.com" },
+  { name: "socialTwitter", label: "Social – Twitter/X URL", type: "text", defaultValue: "https://www.twitter.com" },
+],
  
 };
 
@@ -186,10 +233,163 @@ const getValue = (data, settingId, field) => {
     ?? field.defaultValue
     ?? "";
 };
+const ImageField = ({ field, value, onChange }) => {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("field", field.name);
+      const res = await apiRequest("/api/admin/settings/upload-image", {
+        useAdminToken: true,
+        method: "POST",
+        body: formData,
+      });
+      if (res?.data?.url) {
+        onChange(res.data.url);
+      } else {
+        setError("Upload succeeded but no URL was returned.");
+      }
+    } catch (err) {
+      setError(err?.message || "Image upload failed.");
+    } finally {
+      setUploading(false);
+      e.target.value = ""; // allow re-selecting the same file
+    }
+  };
+
+  return (
+    <div className="block rounded-lg border border-slate-200 bg-white p-4">
+      <span className="text-xs font-black uppercase tracking-wide text-slate-500">{field.label}</span>
+
+      <div className="mt-3 flex items-center gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+          {value ? (
+            <img src={resolveAssetUrl(value)} alt={field.label} className="h-full w-full object-contain" />
+          ) : (
+            <span className="text-[10px] font-bold text-slate-400">No image</span>
+          )}
+        </div>
+
+        <div className="flex-1">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100">
+            {uploading ? "Uploading…" : "Choose Image"}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden" onChange={handleFileChange} disabled={uploading} />
+          </label>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="ml-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-100"
+            >
+              Remove
+            </button>
+          )}
+          {error && <p className="mt-2 text-xs font-bold text-rose-600">{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
 // ─── SettingField ─────────────────────────────────────────────────────────────
+const CardListField = ({ field, value, onChange }) => {
+  const items = Array.isArray(value) && value.length ? value : field.defaultValue;
 
+  const updateItem = (idx, key, val) => {
+    onChange(items.map((it, i) => (i === idx ? { ...it, [key]: val } : it)));
+  };
+
+  const addItem = () => {
+    onChange([
+      ...items,
+      { icon: "✨", title: "New Feature", desc: "Describe this feature.", slug: `feature-${items.length + 1}` },
+    ]);
+  };
+
+  const removeItem = (idx) => onChange(items.filter((_, i) => i !== idx));
+
+  return (
+    <div className="col-span-full rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-black uppercase tracking-wide text-slate-500">{field.label}</span>
+        <button
+          type="button"
+          onClick={addItem}
+          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-100"
+        >
+          + Add Card
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {items.map((item, idx) => (
+          <div
+            key={idx}
+            className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[70px_1fr_1.4fr_120px_auto] sm:items-end"
+          >
+            <label className="block">
+              <span className="text-[10px] font-black uppercase text-slate-400">Icon</span>
+              <input
+                value={item.icon}
+                onChange={(e) => updateItem(idx, "icon", e.target.value)}
+                className="mt-1 h-9 w-full rounded border border-slate-200 px-2 text-center text-lg"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-black uppercase text-slate-400">Title</span>
+              <input
+                value={item.title}
+                onChange={(e) => updateItem(idx, "title", e.target.value)}
+                className="mt-1 h-9 w-full rounded border border-slate-200 px-2 text-sm font-bold"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-black uppercase text-slate-400">Description</span>
+              <input
+                value={item.desc}
+                onChange={(e) => updateItem(idx, "desc", e.target.value)}
+                className="mt-1 h-9 w-full rounded border border-slate-200 px-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-black uppercase text-slate-400">Slug</span>
+              <input
+                value={item.slug}
+                onChange={(e) => updateItem(idx, "slug", e.target.value)}
+                className="mt-1 h-9 w-full rounded border border-slate-200 px-2 text-xs"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => removeItem(idx)}
+              className="h-9 rounded border border-rose-200 bg-rose-50 px-3 text-xs font-black text-rose-600 hover:bg-rose-100"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        {!items.length && (
+          <div className="rounded border border-dashed border-slate-200 p-3 text-center text-xs font-semibold text-slate-400">
+            No cards yet — add one above.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 const SettingField = ({ settingId, field, value, onChange }) => {
+  if (field.type === "cardList") {
+    return <CardListField field={field} value={value} onChange={onChange} />;
+  }
+  if (field.type === "image") {
+    return <ImageField field={field} value={value} onChange={onChange} />;
+  }
   if (field.type === "boolean") {
     return (
       <label className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
@@ -306,11 +506,7 @@ const SettingDetail = ({ card, onBack }) => {
   );
 };
 
-// ─── AdminRegistrationDetail (Super Admin only) ────────────────────────────────
-// Matches the design: "Admin Registration" lives inside System Settings and is
-// only reachable/usable by Super Admin. Replaces the old public registration
-// page. Form fields: Full Name, Email, Phone No., Password, Role, Accessible
-// Platform Features, "Add New Admin" button — plus a list of existing admins.
+
 
 const emptyAdminForm = { fullName: "", email: "", phone: "", password: "", role: "Support Executive", customRole: "", permissions: [] };
 

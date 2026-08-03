@@ -30,6 +30,9 @@ const DashboardDocuments = () => {
   const [uploadError, setUploadError] = useState(null);
   const [selectedType, setSelectedType] = useState(DOCUMENT_TYPES[0]);
   const fileInputRef = useRef(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -98,14 +101,33 @@ const DashboardDocuments = () => {
     }
   };
 
-  const viewFile = (doc) => {
+  const viewFile = async (doc) => {
+  setPreviewDoc(doc);
+  setPreviewBlobUrl(null);
+  setPreviewLoading(true);
+  try {
     const token = getToken();
     const url = `${BASE_URL}/api/documents/${doc._id}/file`;
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.blob())
-      .then((blob) => { window.open(URL.createObjectURL(blob), "_blank"); })
-      .catch(() => alert("Could not open file."));
-  };
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error("Could not open file.");
+    const blob = await res.blob();
+    setPreviewBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(blob);
+    });
+  } catch (err) {
+    alert(err.message || "Could not open file.");
+    setPreviewDoc(null);
+  } finally {
+    setPreviewLoading(false);
+  }
+};
+
+const closePreview = () => {
+  if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+  setPreviewBlobUrl(null);
+  setPreviewDoc(null);
+};
 
   return (
     <div className="space-y-8">
@@ -269,6 +291,89 @@ const DashboardDocuments = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Document preview modal ── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={closePreview}>
+          <div
+            className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-black text-slate-900 dark:text-white">
+                {previewDoc.documentType}
+              </div>
+              <button
+                onClick={closePreview}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="relative mt-4 aspect-[4/5] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10">
+              {previewLoading ? (
+                <div className="grid h-full place-items-center text-slate-400">
+                  <RefreshCw size={22} className="animate-spin" />
+                </div>
+              ) : previewBlobUrl && previewDoc.mimeType?.startsWith("image/") ? (
+                <img src={previewBlobUrl} alt={previewDoc.documentType} className="h-full w-full object-contain" />
+              ) : previewBlobUrl && previewDoc.mimeType === "application/pdf" ? (
+                <iframe title={previewDoc.documentType} src={previewBlobUrl} className="h-full w-full border-0" />
+              ) : null}
+
+              {/* Read-only admin markup overlay */}
+              {previewDoc.marks?.length > 0 && (
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                >
+                  {previewDoc.marks.map((mark) => {
+                    if (mark.tool === "circle") {
+                      const [s, end = s] = mark.points;
+                      const x = Math.min(s.x, end.x);
+                      const y = Math.min(s.y, end.y);
+                      const w = Math.max(Math.abs(end.x - s.x), 2);
+                      const h = Math.max(Math.abs(end.y - s.y), 2);
+                      return (
+                        <ellipse
+                          key={mark.id}
+                          cx={x + w / 2}
+                          cy={y + h / 2}
+                          rx={w / 2}
+                          ry={h / 2}
+                          fill="none"
+                          stroke={mark.color}
+                          strokeWidth="1.2"
+                        />
+                      );
+                    }
+                    return (
+                      <polyline
+                        key={mark.id}
+                        fill="none"
+                        stroke={mark.color}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.2"
+                        points={mark.points.map((p) => `${p.x},${p.y}`).join(" ")}
+                      />
+                    );
+                  })}
+                </svg>
+              )}
+            </div>
+
+            {previewDoc.note && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs font-semibold text-violet-800">
+                <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                <span>{previewDoc.note}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

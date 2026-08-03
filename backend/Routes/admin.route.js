@@ -32,6 +32,7 @@ const {
   rejectDocument,
   sendDocumentCorrection,
   getDocumentFile,
+  globalSearch,
   
 } = require("../Controllers/admin.controller");
 const { getAllPurchases } = require("../Controllers/purchase.controller");
@@ -108,7 +109,7 @@ router.patch("/support-tickets/:id", updateSupportTicket);
 // } = require("../Controllers/adminDocument.controller");
 //
 // Then register these routes (all protected by authenticateAdmin already applied above):
-
+router.get("/search", globalSearch);
 // Document management routes
 router.get("/documents", getDocuments);
 router.patch("/documents/:id/approve", approveDocument);

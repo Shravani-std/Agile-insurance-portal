@@ -15,6 +15,7 @@ const Document = require("../Models/document.model");
 const path = require("path");
 const fs = require("fs");
 
+const SupportTicket = require("../Models/contact.model");
 
 const flattenObject = (obj, prefix = "") => {
   return Object.keys(obj).reduce((acc, key) => {
@@ -611,20 +612,21 @@ const getDocuments = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const formatted = docs.map((doc) => ({
-      id: doc._id,
-      type: doc.documentType,
-      fileName: doc.fileName,
-      filePath: doc.filePath,
-      mimeType: doc.mimeType,
-      size: doc.size,
-      status: doc.status,
-      note: doc.note,
-      owner: doc.user?.fullName || doc.user?.email || "Unknown",
-      ownerEmail: doc.user?.email,
-      userId: doc.user?._id,
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt,
-    }));
+          id: doc._id,
+          type: doc.documentType,
+          fileName: doc.fileName,
+          filePath: doc.filePath,
+          mimeType: doc.mimeType,
+          size: doc.size,
+          status: doc.status,
+          note: doc.note,
+          marks: doc.marks || [],        // ← add this
+          owner: doc.user?.fullName || doc.user?.email || "Unknown",
+          ownerEmail: doc.user?.email,
+          userId: doc.user?._id,
+          createdAt: doc.createdAt,
+          updatedAt: doc.updatedAt,
+}));
 
     res.json({ success: true, data: formatted });
   } catch (err) {
@@ -695,14 +697,14 @@ const sendDocumentCorrection = async (req, res) => {
     const { note, marks } = req.body;
 
     const doc = await Document.findByIdAndUpdate(
-      req.params.id,
-      {
-        status: "Re-upload Requested",
-        note: note || "Admin has requested corrections. Please re-upload.",
-        ...(marks && { marks }), // if you later add a marks field to schema
-      },
-      { new: true }
-    ).populate("user", "fullName email");
+  req.params.id,
+  {
+    status: "Re-upload Requested",
+    note: note || "Admin has requested corrections. Please re-upload.",
+    marks: marks || [],
+  },
+  { new: true }
+).populate("user", "fullName email");
 
     if (!doc) return res.status(404).json({ success: false, message: "Document not found" });
 
@@ -749,6 +751,120 @@ const getDocumentFile = async (req, res) => {
 
 
 
+// GET /api/admin/search?q=...
+// Cross-collection search: Users, Claims, Tickets, Policies, Documents, KYC, Payments
+const globalSearch = catchAsync(async (req, res) => {
+  const q = String(req.query.q || "").trim();
+
+  const empty = { users: [], claims: [], tickets: [], policies: [], documents: [], kyc: [], payments: [] };
+  if (!q) return res.status(200).json({ success: true, data: empty });
+
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(escaped, "i");
+
+  // First find matching users, so we can also surface records that belong
+  // to a user matched by name/email/phone (e.g. searching "tobi" should
+  // also return tobi's claims, tickets, documents, etc.)
+  const matchedUsers = await User.find({
+    $or: [{ fullName: regex }, { email: regex }, { phone: regex }],
+  }).select("_id fullName email");
+  const matchedUserIds = matchedUsers.map((u) => u._id);
+
+  const [claims, tickets, policies, documents, kyc, payments] = await Promise.all([
+    Claim.find({
+      $or: [
+        { claim_number: regex },
+        { claim_type: regex },
+        { status: regex },
+        { user: { $in: matchedUserIds } },
+      ],
+    })
+      .populate("user", "fullName email")
+      .populate("policy", "policyName category")
+      .limit(10),
+
+    SupportTicket.find({
+      $or: [{ subject: regex }, { status: regex }, { user: { $in: matchedUserIds } }],
+    })
+      .populate("user", "fullName email")
+      .limit(10),
+
+    Policy.find({
+      $or: [{ policyName: regex }, { category: regex }, { companyName: regex }],
+    }).limit(10),
+
+    Document.find({
+      $or: [{ documentType: regex }, { fileName: regex }, { status: regex }, { user: { $in: matchedUserIds } }],
+    })
+      .populate("user", "fullName email")
+      .limit(10),
+
+    KycRequest.find({
+      $or: [{ status: regex }, { user: { $in: matchedUserIds } }],
+    })
+      .populate("user", "fullName email phone")
+      .limit(10),
+
+    Payment.find({
+      $or: [{ status: regex }, { user: { $in: matchedUserIds } }],
+    })
+      .populate("user", "fullName email")
+      .populate("policy", "policyName")
+      .limit(10),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      users: matchedUsers.map((u) => ({
+        id: u._id,
+        name: u.fullName,
+        email: u.email,
+      })),
+      claims: claims.map((c) => ({
+        id: c._id,
+        claimNumber: c.claim_number,
+        user: c.user?.fullName || "Unknown",
+        policy: c.policy?.policyName || c.claim_type || "",
+        status: c.status,
+      })),
+      tickets: tickets.map((t) => ({
+        id: t._id,
+        subject: t.subject,
+        user: t.user?.fullName || "Unknown",
+        status: t.status,
+      })),
+      policies: policies.map((p) => ({
+        id: p._id,
+        name: p.policyName,
+        category: p.category,
+        companyName: p.companyName,
+      })),
+      documents: documents.map((d) => ({
+        id: d._id,
+        type: d.documentType,
+        fileName: d.fileName,
+        owner: d.user?.fullName || "Unknown",
+        status: d.status,
+      })),
+      kyc: kyc.map((k) => ({
+        id: k._id,
+        user: k.user?.fullName || "Unknown",
+        status: k.status,
+      })),
+      payments: payments.map((p) => ({
+        id: p._id,
+        user: p.user?.fullName || "Unknown",
+        policy: p.policy?.policyName || "",
+        amount: p.amount,
+        status: p.status,
+      })),
+    },
+  });
+});
+
+
+
 
 module.exports = {
   getDashboard,
@@ -780,4 +896,5 @@ module.exports = {
   rejectDocument,
   sendDocumentCorrection,
   getDocumentFile,
+  globalSearch,
 };

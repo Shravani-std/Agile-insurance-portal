@@ -15,7 +15,10 @@ import { statusClass } from "../../utils/helpers";
 import { apiRequest, getAdminToken } from "../../utils/api";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000"
+).replace(/\/$/, "");
+
 
 const STATUS_COLORS = {
   Pending: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -123,14 +126,14 @@ const DocumentsPage = () => {
     }
   };
 
-  // ── markup canvas ─────────────────────────────────────────────────────────
   const pointFromEvent = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    return {
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
-    };
+  const rect = e.currentTarget?.getBoundingClientRect?.();
+  if (!rect) return { x: 0, y: 0 }; // or return null and guard callers
+  return {
+    x: ((e.clientX - rect.left) / rect.width) * 100,
+    y: ((e.clientY - rect.top) / rect.height) * 100,
   };
+};
 
   const startMarkup = (e) => {
     if (!selectedDoc) return;
@@ -147,9 +150,10 @@ const DocumentsPage = () => {
     });
   };
   const continueMarkup = (e) => {
-    if (!draftMark || markupTool !== "pen") return;
-    setDraftMark((m) => ({ ...m, points: [...m.points, pointFromEvent(e)] }));
-  };
+  if (!draftMark || markupTool !== "pen") return;
+  const point = pointFromEvent(e); // compute now, while e.currentTarget is still valid
+  setDraftMark((m) => ({ ...m, points: [...m.points, point] }));
+};
   const finishMarkup = (e) => {
     if (!draftMark || !selectedDoc) return;
     const end = pointFromEvent(e);

@@ -30,12 +30,14 @@ import { EditPanel } from "../../components/admin/shared";
 
 import { setActivePage, setMobileOpen, setSidebarCollapsed, clearEditingRecord, updateEditingDraft } from "../../store/slices/uiSlice";
 import { useAdminActions } from "../../hooks/useAdminActions";
+import SearchResultsPage from "../SearchResultsPage";
 
 const pageMap = {
   dashboard: Dashboard,
   users: UsersPage,
   claims: ClaimsPage,
   // requirements: RequirementsPage,
+  search: SearchResultsPage,
   support: SupportPage,
   policies: PoliciesPage,
   documents: DocumentsPage,

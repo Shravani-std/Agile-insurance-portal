@@ -17,7 +17,6 @@ import { apiRequest } from "../utils/api";
 
 const formatInr = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 
-
 const GENERIC_EXCLUSIONS = [
   "Fraudulent or pre-disclosed false claims",
   "Intentional self-inflicted injuries/damages",
@@ -43,6 +42,9 @@ const buildFaqs = (policy) => [
   { q: "What affects the policy health score?", a: "Premium consistency, claim history, risk score, and coverage utilization." },
 ];
 
+// Normalizes ANY raw policy source (real DB doc or synthetic demo object)
+// into the exact shape the UI below relies on. Every field the JSX reads
+// gets a safe default here, so nothing downstream can be undefined.
 const normalizePolicy = (p) => {
   if (!p) return null;
   const premiumYearly = p.premiumAmount || p.premiumYearly || p.premium || 0;
@@ -73,6 +75,7 @@ const normalizePolicy = (p) => {
 const resolvePolicyInput = async (id) => {
   if (!id) return null;
 
+  // Real MongoDB ObjectId — fetch from backend
   if (/^[a-f\d]{24}$/i.test(id)) {
     try {
       const res = await apiRequest(`/api/policies/${id}`);
@@ -82,6 +85,7 @@ const resolvePolicyInput = async (id) => {
     }
   }
 
+  // Synthetic/demo policy ID — build a mock object, e.g. "health-insurance_hdfc-ergo_2"
   const syntheticId = String(id);
   const [categorySlug, companySlug, indexPart] = syntheticId.split("_");
   const category = categorySlug?.replace(/-insurance$/i, "") || "health";
@@ -100,7 +104,7 @@ const resolvePolicyInput = async (id) => {
             ? 799 + Number(indexPart || 1) * 120
             : 899 + Number(indexPart || 1) * 160;
 
-  return {
+  const rawSynthetic = {
     id: syntheticId,
     _id: syntheticId,
     companyName,
@@ -125,6 +129,12 @@ const resolvePolicyInput = async (id) => {
     category: category,
     categorySlug: `${categorySlug}`,
   };
+
+  // Previously this returned rawSynthetic directly, skipping normalizePolicy.
+  // That meant keyBenefits/exclusions/claimProcess/reviews/coverageLabel/
+  // companyBrand were all undefined for synthetic IDs, causing the .map()
+  // crash. Now both branches go through the same normalizer.
+  return normalizePolicy(rawSynthetic);
 };
 
 // Most plan-specific copy comes from the backend Policy document; this file controls detail page section headings and CTAs.
@@ -355,7 +365,7 @@ const PolicyDetailsPage = () => {
               Included features
             </div>
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {policy.keyBenefits.map((b) => (
+              {(policy.keyBenefits || []).map((b) => (
                 <div key={b} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <BadgeCheck size={18} className="text-blue-600" />
                   <div className="text-sm font-semibold text-slate-700">{b}</div>
@@ -370,7 +380,7 @@ const PolicyDetailsPage = () => {
               Excluded conditions
             </div>
             <ul className="mt-6 space-y-3">
-              {policy.exclusions.map((x) => (
+              {(policy.exclusions || []).map((x) => (
                 <li key={x} className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700">
                   {x}
                 </li>
@@ -384,7 +394,7 @@ const PolicyDetailsPage = () => {
               Claim settlement timeline
             </div>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {policy.claimProcess.map((step, idx) => (
+              {(policy.claimProcess || []).map((step, idx) => (
                 <div key={step} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                   <div className="text-xs font-black text-blue-700">Step {idx + 1}</div>
                   <div className="mt-2 text-sm font-semibold text-slate-700">{step}</div>
@@ -435,7 +445,7 @@ const PolicyDetailsPage = () => {
               <div className="text-xs font-semibold text-slate-500">Latest (mock)</div>
             </div>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {policy.reviews.map((r) => (
+              {(policy.reviews || []).map((r) => (
                 <div key={r.name} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-black text-slate-900">{r.name}</div>

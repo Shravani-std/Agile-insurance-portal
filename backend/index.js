@@ -27,6 +27,7 @@ const claimRoutes = require("./Routes/claim.route");
 const uploadRoutes = require("./Routes/upload.route");
 const purchaseRoutes = require("./Routes/purchase.route");
 const notificationRoutes = require("./Routes/notification.route");
+const adminLandingImageRoutes = require("./Routes/adminLandingImageRoutes");
 // Middleware
 app.use(
   cors({
@@ -81,6 +82,8 @@ app.use("/api/support", supportRoutes);
 app.use("/api/profile", userProfileRoutes);
 app.use("/api/policies", policyRoutes);
 app.use("/api/admin", adminSupportRoutes);
+app.use("/api/admin/settings", adminLandingImageRoutes); // <-- add this line
+
 app.use("/api/documents", documentRoutes);
 
 app.use("/api/claims", claimRoutes);

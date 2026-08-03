@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate , Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import {
     ChevronDown,
     Phone,
@@ -16,9 +16,8 @@ import {
     BriefcaseBusiness,
 } from "lucide-react";
 import { useAuth } from "../contexts/useAuth";
-import { apiRequest } from "../utils/api";
+import { useSettings } from "../hooks/SettingsContext";
 
-// Icon mapping for insurance categories
 const getCategoryIcon = (categoryName) => {
   const name = categoryName?.toLowerCase() || "";
   if (name.includes("health")) return HeartPulse;
@@ -30,57 +29,27 @@ const getCategoryIcon = (categoryName) => {
 };
 
 const AGILE_LOGO_SRC = "/agile-insurance-logo.svg";
-// const STORAGE_SETTINGS = "agile_insurance_system_settings_v1";
-
-
 
 const Navbar = () => {
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
-    const [portalName, setPortalName] = useState("Agile Insurance");
-    const [supportPhone, setSupportPhone] = useState("+91 98765 43210");
-    const [policyForms, setPolicyForms] = useState({
+
+    // Pulled from the shared context — no independent fetch here anymore.
+    const { settings } = useSettings();
+    // near portalName / supportPhone / policyForms:
+const landingPage = settings?.landingPage || {};
+const navbarTagline = landingPage.navbarTagline || "Smart & Secure Protection";
+    const portalName = settings?.general?.companyName || "Agile Insurance";
+    const supportPhone = settings?.general?.supportPhone || "+91 98765 43210";
+    const policyForms = settings?.policyForms || {
         healthForm: true,
         motorForm: true,
         lifeForm: true,
         travelForm: true,
         businessForm: true,
-    });
-
-    useEffect(() =>{
-        const fetchSettings = async () =>{
-        try{
-            const response = await apiRequest("/api/admin/settings");
-            const settings = response?.data;
-
-            setPortalName(
-                settings?.general?.companyName || "Agile Insurance"
-            );
-            setSupportPhone(
-                settings?.general?.supportPhone || "+91 98765 43210"
-            );
-            setPolicyForms(
-                settings?.policyForms || {
-                    healthForm: true,
-                    motorForm: true,
-                    lifeForm: true,
-                    travelForm: true,
-                    businessForm: true,
-                }
-            );
-        }
-        catch(error){
-            console.error(
-                "Failed to load portal settings: ",
-                error
-            );
-        }
-
     };
-    fetchSettings();
-    },[]);
 
     const handleNav = (route) => {
         if (!route) return;
@@ -93,7 +62,6 @@ const Navbar = () => {
         setMobileMenuOpen((prev) => !prev);
     };
 
-    // If menu labels change, keep these keyword-to-route rules aligned with the new wording.
     const resolveRoute = (label) => {
         const v = String(label || "").toLowerCase();
         if (v.includes("health")) return "/health-insurance";
@@ -113,50 +81,48 @@ const Navbar = () => {
 
         return null;
     };
-  
 
     const insuranceDropdown = [
-  policyForms.healthForm && "Health Insurance",
-  policyForms.motorForm && "Car Insurance",
-  policyForms.lifeForm && "Life Insurance",
-  policyForms.travelForm && "Travel Insurance",
-  policyForms.businessForm && "Business Insurance",
-].filter(Boolean);
+        policyForms.healthForm && "Health Insurance",
+        policyForms.motorForm && "Car Insurance",
+        policyForms.lifeForm && "Life Insurance",
+        policyForms.travelForm && "Travel Insurance",
+        policyForms.businessForm && "Business Insurance",
+    ].filter(Boolean);
 
-    // Desktop and mobile navigation labels/dropdown items are controlled from this array.
     const navItems = [
         {
-    name: "Insurance Products",
-    dropdown: insuranceDropdown,
-  },
-        {
-        name: "Renew Your Policy",
-        dropdown: [
-            "Renew Health Policy",
-            "Renew Vehicle Policy",
-            "Renew Life Insurance",
-            "Download Policy",
-        ],
+            name: "Insurance Products",
+            dropdown: insuranceDropdown,
         },
         {
-        name: "Claim",
-        dropdown: [
-            "File New Claim",
-            "Track Existing Claim",
-            "Claim Support",
-            "Know Claim Process",
-        ],
+            name: "Renew Your Policy",
+            dropdown: [
+                "Renew Health Policy",
+                "Renew Vehicle Policy",
+                "Renew Life Insurance",
+                "Download Policy",
+            ],
         },
         {
-        name: "Support",
-        dropdown: [
-            "Track Payments",
-            "Verify Advisor",
-            "Manage Policies",
-            "Communication Preferences",
-            "Chat With Us",
-            "Help Center",
-        ],
+            name: "Claim",
+            dropdown: [
+                "File New Claim",
+                "Track Existing Claim",
+                "Claim Support",
+                "Know Claim Process",
+            ],
+        },
+        {
+            name: "Support",
+            dropdown: [
+                "Track Payments",
+                "Verify Advisor",
+                "Manage Policies",
+                "Communication Preferences",
+                "Chat With Us",
+                "Help Center",
+            ],
         },
     ];
 
@@ -164,10 +130,8 @@ const Navbar = () => {
         <header className="relative z-50 w-full border-b border-gray-200 bg-white dark:border-white/10 dark:bg-[#070B14]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 min-h-[60px] py-2 flex items-center justify-between gap-3">
 
-            {/* Left Side */}
             <div className="flex min-w-0 items-center gap-6 xl:gap-14">
 
-            {/* Brand logo, brand name, and tagline in the public header. */}
             <Link to="/" className="flex min-w-0 items-center gap-2 sm:gap-3 cursor-pointer">
                 <img
                 src={AGILE_LOGO_SRC}
@@ -180,13 +144,12 @@ const Navbar = () => {
                     {portalName}
                 </h1>
 
-                <p className="hidden sm:block text-[11px] text-gray-500 mt-1 uppercase tracking-widest dark:text-slate-400">
-                    Smart & Secure Protection
-                </p>
+               <p className="hidden sm:block text-[11px] text-gray-500 mt-1 uppercase tracking-widest dark:text-slate-400">
+    {navbarTagline}
+</p>
                 </div>
             </Link>
 
-            {/* Nav Links */}
             <nav className="hidden lg:flex items-center gap-10">
                 <button
                 onClick={() => handleNav("/")}
@@ -207,7 +170,6 @@ const Navbar = () => {
                     <ChevronDown size={16} />
                     </button>
 
-                    {/* Dropdown */}
                     {activeDropdown === index && (
                     <div className="absolute left-0 w-[260px] rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#0B1020]">
                         <div className="flex flex-col gap-2">
@@ -236,7 +198,6 @@ const Navbar = () => {
             </nav>
             </div>
 
-            {/* Right Side */}
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
 
             <button
@@ -248,8 +209,6 @@ const Navbar = () => {
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
-            {/* Header CTA text appears here and again inside the mobile menu. */}
-            {/* Talk To Expert */}
             <button
                 className="hidden md:flex items-center gap-2 border border-blue-600 text-blue-600 px-5 py-3 rounded-2xl font-medium hover:bg-blue-600 hover:text-white transition-all duration-300"
                 title={supportPhone}
@@ -258,7 +217,6 @@ const Navbar = () => {
                 Talk to Expert
             </button>
 
-            {/* Sign In */}
             <button
                 onClick={() => handleNav(isAuthenticated ? "/dashboard" : "/auth")}
                 className="bg-blue-600 text-white px-3 py-2.5 sm:px-5 sm:py-3 rounded-2xl text-sm sm:text-base font-medium hover:bg-blue-700 transition-all duration-300 flex items-center gap-2"
@@ -338,8 +296,6 @@ const Navbar = () => {
             </div>
         )}
 
-        {/* Bottom trust-strip feature labels shown on extra-wide screens. */}
-        {/* Bottom Quick Features */}
         <div className="hidden xl:flex items-center justify-center gap-10 border-t border-gray-100 py-3 bg-[#f8fbff] dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-300">
             <ShieldCheck size={18} className="text-blue-600" />

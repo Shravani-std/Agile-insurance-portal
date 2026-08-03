@@ -294,7 +294,52 @@ gdprCookie: {
       default: true,
     },
 
-  
+  // Landing Page (public homepage content)
+landingPage: {
+  heroLine1: { type: String, default: "Claim Smarter," },
+  heroLine2: { type: String, default: "Not Harder!" },
+  heroSubtitle: {
+    type: String,
+    default:
+      "Experience the future of insurance. Report vehicle claims in seconds with our AI-driven appraisal system. Simpler, faster, better.",
+  },
+  heroButtonText: { type: String, default: "Get Started" },
+  heroButtonTextLoggedIn: { type: String, default: "Open Dashboard" },
+  trustedPartnersLabel: { type: String, default: "Trusted Partners" },
+
+  whyChooseEyebrow: { type: String, default: "Why Choose Us" },
+  whyChooseHeading: { type: String, default: "Trusted Digital Insurance Experience" },
+  whyChooseFeatures: {
+    type: [
+      {
+        icon: { type: String, default: "✨" },
+        title: { type: String, default: "" },
+        desc: { type: String, default: "" },
+        slug: { type: String, default: "" },
+        _id: false, // don't auto-generate _id per card, frontend doesn't use it
+      },
+    ],
+    default: [
+      { icon: "💬", title: "24/7 Customer Support", desc: "Real-time human + AI support anytime from anywhere.", slug: "customer-support" },
+      { icon: "⚡", title: "Fast Claim Processing", desc: "Verification and processing completed within minutes.", slug: "fast-claims" },
+      { icon: "📄", title: "Smart Policy Tracking", desc: "Track and manage all policies from one dashboard.", slug: "policy-tracking" },
+      { icon: "🔒", title: "Advanced Security", desc: "Military-grade encryption for all your data and management.", slug: "advanced-security" },
+    ],
+  },
+
+  navbarTagline: { type: String, default: "Smart & Secure Protection" },
+
+  footerLegalNotice: {
+    type: String,
+    default: "BEWARE OF SPURIOUS PHONE CALLS AND FICTITIOUS / FRAUDULENT OFFERS",
+  },
+  socialFacebook: { type: String, default: "https://www.facebook.com" },
+  socialYoutube: { type: String, default: "https://www.youtube.com" },
+  socialLinkedin: { type: String, default: "https://www.linkedin.com" },
+  socialTwitter: { type: String, default: "https://www.twitter.com" },
+},
+heroImageUrl: { type: String, default: "" },
+  logoUrl: { type: String, default: "" },
     },
     {
       timestamps: true,

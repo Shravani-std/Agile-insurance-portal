@@ -29,6 +29,7 @@ export const pageTitles = {
   users: "User Management",
   claims: "Claims Management",
   // requirements: "Requirement Management",
+  search: "Search Results",
   support: "Support Center",
   policies: "Policy Management",
   documents: "Document Verification",

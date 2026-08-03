@@ -6,7 +6,11 @@ const API_BASE_URL = (() => {
   if (!raw) return "http://localhost:5000";
   return raw.replace(/\/$/, "").replace(/\/api(?:\/)?$/i, "");
 })();
-
+export const resolveAssetUrl = (path) => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path; // already absolute (e.g. logo/partner URLs)
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+};
 const buildApiUrl = (path) => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const absolutePath = /^https?:\/\//i.test(normalizedPath) ? normalizedPath : `${API_BASE_URL}${normalizedPath.startsWith("/api") ? normalizedPath : `/api${normalizedPath}`}`;
@@ -178,60 +182,3 @@ export const openAiChat = async ({ message, history = [], contextLabel = "Agile 
   return readOpenAiText(payload) || "I could not produce an answer. Please try again.";
 };
 
-
-
-
-
-
-// // ==================== USER AUTH APIs ====================
-
-// // Register
-// export const registerUser = (data) =>
-//   apiRequest("/api/auth/register", {
-//     method: "POST",
-//     body: JSON.stringify(data),
-//     skipAuth: true,
-//   });
-
-// // Login
-// export const loginUser = async (data) => {
-//   const response = await apiRequest("/api/auth/login", {
-//     method: "POST",
-//     body: JSON.stringify(data),
-//     skipAuth: true,
-//   });
-
-//   // Save JWT
-//   if (response?.data?.token) {
-//     setToken(response.data.token);
-//   }
-
-//   return response;
-// };
-
-// // Logout
-// export const logoutUser = async () => {
-//   await apiRequest("/api/auth/logout", {
-//     method: "POST",
-//   });
-
-//   setToken(null);
-// };
-
-// // Logged-in user
-// export const getCurrentUser = () =>
-//   apiRequest("/api/auth/me");
-
-// // Update profile
-// export const updateProfile = (data) =>
-//   apiRequest("/api/auth/update-profile", {
-//     method: "PUT",
-//     body: JSON.stringify(data),
-//   });
-
-// // Change password
-// export const changePassword = (data) =>
-//   apiRequest("/api/auth/change-password", {
-//     method: "PUT",
-//     body: JSON.stringify(data),
-//   });
